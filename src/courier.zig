@@ -93,7 +93,8 @@ pub const Courier = struct {
     }
 
     /// Send a raw transaction to the peer
-    pub fn sendTx(self: *Courier, tx_bytes: []const u8) !void {
+    /// txid must be the correct transaction ID (without witness data for SegWit txs)
+    pub fn sendTx(self: *Courier, tx_bytes: []const u8, txid: *const [32]u8) !void {
         if (!self.connected) return error.NotConnected;
 
         // First, send an inv message announcing the transaction
@@ -102,21 +103,15 @@ pub const Courier = struct {
 
         const writer = inv_payload.writer(self.allocator);
 
-        // Calculate txid (double SHA256)
-        var h1: [32]u8 = undefined;
-        var h2: [32]u8 = undefined;
-        std.crypto.hash.sha2.Sha256.hash(tx_bytes, &h1, .{});
-        std.crypto.hash.sha2.Sha256.hash(&h1, &h2, .{});
-
         // inv message: count (1) + type (MSG_TX=1) + hash (32 bytes)
         try writer.writeByte(1); // count = 1
         try writer.writeInt(u32, 1, .little); // MSG_TX
-        try writer.writeAll(&h2); // txid (not reversed - wire format)
+        try writer.writeAll(txid); // txid (not reversed - wire format)
 
         try self.sendMessage("inv", inv_payload.items);
 
         // Wait for getdata request (peer wants the full transaction)
-        const got_getdata = try self.waitForGetdata(&h2, 5000);
+        const got_getdata = try self.waitForGetdata(txid, 5000);
 
         if (got_getdata) {
             // Send the full transaction

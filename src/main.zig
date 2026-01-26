@@ -164,7 +164,8 @@ fn broadcastTransaction(allocator: std.mem.Allocator, args: BroadcastArgs) !void
     };
     defer tx.deinit(allocator);
 
-    const txid_hex = try tx.txidHex(allocator);
+    const txid_bytes = try tx.txid(allocator);
+    const txid_hex = yam.hashToHex(txid_bytes);
     std.debug.print("Transaction ID: {s}\n", .{txid_hex});
     std.debug.print("Inputs: {d}, Outputs: {d}\n", .{ tx.inputs.len, tx.outputs.len });
 
@@ -221,7 +222,7 @@ fn broadcastTransaction(allocator: std.mem.Allocator, args: BroadcastArgs) !void
     std.debug.print("Timing: {s}\n", .{if (args.timing == .staggered_random) "staggered (privacy mode)" else "simultaneous"});
 
     // Broadcast transaction (stop after peer_count successful broadcasts)
-    var result = try r.broadcastTx(tx_bytes, .{
+    var result = try r.broadcastTx(tx_bytes, &txid_bytes, .{
         .strategy = args.timing,
         .max_peers = args.peer_count,
     });

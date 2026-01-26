@@ -206,7 +206,8 @@ pub const Relay = struct {
 
     /// Broadcast a transaction to connected peers
     /// If max_peers is set, stops after that many successful broadcasts
-    pub fn broadcastTx(self: *Relay, tx_bytes: []const u8, options: BroadcastOptions) !BroadcastResult {
+    /// txid must be the correct transaction ID (without witness data for SegWit txs)
+    pub fn broadcastTx(self: *Relay, tx_bytes: []const u8, txid: *const [32]u8, options: BroadcastOptions) !BroadcastResult {
         var reports_list: std.ArrayList(BroadcastReport) = .empty;
         errdefer reports_list.deinit(self.allocator);
 
@@ -241,7 +242,7 @@ pub const Relay = struct {
                 .elapsed_ms = 0,
             };
 
-            courier.sendTx(tx_bytes) catch |err| {
+            courier.sendTx(tx_bytes, txid) catch |err| {
                 std.debug.print("Failed to send tx to peer: {s}\n", .{@errorName(err)});
                 report.elapsed_ms = @intCast(std.time.milliTimestamp() - start);
                 try reports_list.append(self.allocator, report);
